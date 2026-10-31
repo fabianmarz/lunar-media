@@ -58,6 +58,7 @@ class MediaSection extends Section
 
                     Route::get('/', [MediaController::class, 'index'])->name('index');
                     Route::post('/', [MediaController::class, 'store'])->name('store');
+                    Route::get('picker', [MediaController::class, 'picker'])->name('picker');
                     Route::get('{media}', [MediaController::class, 'show'])->name('show');
                     Route::put('{media}', [MediaController::class, 'update'])->name('update');
                     Route::delete('{media}', [MediaController::class, 'destroy'])->name('destroy');

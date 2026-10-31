@@ -1,4 +1,5 @@
 import IndexPage from './pages/Index.vue';
+import MediaPicker from './components/MediaPicker.vue';
 
 // Utilities the panel's own build doesn't emit but this page uses.
 const styles = `
@@ -15,4 +16,9 @@ document.head.appendChild(styleEl);
 // DOMContentLoaded, so anything deferred to booting() runs too late.
 window.LunarPanel.registerPages({
     'media::Media/Index': IndexPage,
+});
+
+// Slot components and the picker the CMS block resolves by name at runtime.
+window.LunarPanel.registerComponents('media', {
+    MediaPicker,
 });

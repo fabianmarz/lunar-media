@@ -2,8 +2,6 @@
 
 namespace LunarMedia\Http\Controllers;
 
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,35 +15,16 @@ use Lunar\Core\Contracts\Actions\Media\UpdatesMedia;
 use Lunar\Core\Models\Asset;
 use LunarMedia\Http\Requests\MediaUpdateRequest;
 use LunarMedia\Http\Requests\MediaUploadRequest;
+use LunarMedia\Support\MediaQuery;
 use LunarMedia\Support\MediaUsage;
 use LunarMedia\Support\OwnerResolver;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class MediaController
 {
-    public function index(Request $request, OwnerResolver $owners): Response
+    public function index(Request $request, OwnerResolver $owners, MediaQuery $query): Response
     {
-        $owner = $request->string('owner')->value();
-        $collection = $request->string('collection')->value();
-
-        $media = Media::query()
-            ->when($request->filled('q'), function (Builder $query) use ($request) {
-                $like = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $request->string('q')->value()).'%';
-
-                $query->where(fn (Builder $q) => $q
-                    ->whereRaw("name like ? escape '!'", [$like])
-                    ->orWhere('custom_properties->name', 'like', $like)
-                    ->orWhereRaw("file_name like ? escape '!'", [$like]));
-            })
-            ->when(
-                array_key_exists($owner, $owners->typeOptions()),
-                fn (Builder $query) => $query->whereIn('model_type', $owners->modelTypes($owner)),
-            )
-            ->when($collection !== '', fn (Builder $query) => $query->where('collection_name', $collection))
-            ->with(['model' => fn (MorphTo $morph) => $morph->morphWith($owners->eagerLoads())])
-            ->latest('id')
-            ->paginate(25)
-            ->withQueryString();
+        $media = $query->build($request)->paginate(25)->withQueryString();
 
         $media->setCollection($media->getCollection()->map(fn (Media $item): array => [
             'id' => $item->id,
@@ -72,16 +51,14 @@ class MediaController
                 ['key' => 'created_at', 'label' => __('media::media.col_created'), 'width' => '160px'],
             ],
             'filters' => $request->only(['q', 'owner', 'collection']),
-            'filterOptions' => [
-                'owners' => $owners->typeOptions(),
-                'collections' => Media::query()->distinct()->orderBy('collection_name')->pluck('collection_name'),
-            ],
+            'filterOptions' => $query->filterOptions(),
             'urls' => [
                 'index' => route('panel.media.index'),
                 'store' => route('panel.media.store'),
                 'show' => route('panel.media.show', '__ID__'),
                 'update' => route('panel.media.update', '__ID__'),
                 'destroy' => route('panel.media.destroy', '__ID__'),
+                'picker' => route('panel.media.picker'),
             ],
         ]);
     }
@@ -89,17 +66,34 @@ class MediaController
     /**
      * Each file gets its own Asset as owner, so every media row has one.
      */
-    public function store(MediaUploadRequest $request, AddsMedia $addsMedia): RedirectResponse
+    public function store(MediaUploadRequest $request, AddsMedia $addsMedia, OwnerResolver $owners): RedirectResponse|JsonResponse
     {
         $files = $request->file('files');
 
-        DB::transaction(function () use ($files, $addsMedia): void {
-            foreach ($files as $file) {
-                $addsMedia->execute(Asset::create(), $file);
-            }
-        });
+        $created = DB::transaction(fn () => collect($files)
+            ->map(fn ($file) => $addsMedia->execute(Asset::create(), $file)));
+
+        if ($request->expectsJson()) {
+            return response()->json(['data' => $created->map(fn (Media $media) => $this->pickerItem($media, $owners))->values()], 201);
+        }
 
         return back()->with('success', trans_choice('media::media.uploaded', count($files), ['count' => count($files)]));
+    }
+
+    /**
+     * Filtered, paginated JSON for the reusable picker dialog.
+     */
+    public function picker(Request $request, OwnerResolver $owners, MediaQuery $query): JsonResponse
+    {
+        $page = $query->build($request)->paginate(24)->withQueryString();
+
+        return response()->json([
+            'data' => $page->getCollection()->map(fn (Media $media) => $this->pickerItem($media, $owners))->values(),
+            'current_page' => $page->currentPage(),
+            'last_page' => $page->lastPage(),
+            'total' => $page->total(),
+            'filterOptions' => $query->filterOptions(),
+        ]);
     }
 
     public function show(Media $media, OwnerResolver $owners, MediaUsage $usage): JsonResponse
@@ -141,6 +135,22 @@ class MediaController
         $updatesMedia->execute($media, $request->validated());
 
         return response()->json($this->detail($media->refresh(), $owners));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function pickerItem(Media $media, OwnerResolver $owners): array
+    {
+        return [
+            'id' => $media->id,
+            'name' => $this->displayName($media),
+            'file_name' => $media->file_name,
+            'mime_type' => $media->mime_type,
+            'url' => str_starts_with((string) $media->mime_type, 'image/') ? $media->getAvailableUrl(['small']) : null,
+            'original_url' => $media->getUrl(),
+            'owner' => $owners->describe($media->model, $media->model_type),
+        ];
     }
 
     /**
