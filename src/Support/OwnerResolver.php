@@ -48,6 +48,32 @@ class OwnerResolver
     }
 
     /**
+     * Owners a library file can be copied onto, keyed like `typeOptions()`.
+     *
+     * @return array<string, class-string<Model>>
+     */
+    public function attachable(): array
+    {
+        return [
+            'product' => Product::class,
+            'brand' => Brand::class,
+            'collection' => Collection::class,
+        ];
+    }
+
+    /**
+     * The panel permission that guards editing the given attachable owner.
+     */
+    public function attachPermission(string $key): ?string
+    {
+        return match ($key) {
+            'product', 'brand' => 'catalog:manage-products',
+            'collection' => 'catalog:manage-collections',
+            default => null,
+        };
+    }
+
+    /**
      * Every `model_type` form (alias and class name) stored for an owner key.
      *
      * @return list<string>

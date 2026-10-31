@@ -1,5 +1,6 @@
 import IndexPage from './pages/Index.vue';
 import MediaPicker from './components/MediaPicker.vue';
+import AttachFromLibrary from './components/AttachFromLibrary.vue';
 
 // Utilities the panel's own build doesn't emit but this page uses.
 const styles = `
@@ -21,4 +22,5 @@ window.LunarPanel.registerPages({
 // Slot components and the picker the CMS block resolves by name at runtime.
 window.LunarPanel.registerComponents('media', {
     MediaPicker,
+    AttachFromLibrary,
 });
