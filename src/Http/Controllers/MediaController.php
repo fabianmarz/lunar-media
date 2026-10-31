@@ -2,6 +2,7 @@
 
 namespace LunarMedia\Http\Controllers;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Number;
@@ -14,7 +15,22 @@ class MediaController
 {
     public function index(Request $request, OwnerResolver $owners): Response
     {
+        $owner = $request->string('owner')->value();
+        $collection = $request->string('collection')->value();
+
         $media = Media::query()
+            ->when($request->filled('q'), function (Builder $query) use ($request) {
+                $like = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $request->string('q')->value()).'%';
+
+                $query->where(fn (Builder $q) => $q
+                    ->whereRaw("name like ? escape '!'", [$like])
+                    ->orWhereRaw("file_name like ? escape '!'", [$like]));
+            })
+            ->when(
+                array_key_exists($owner, $owners->typeOptions()),
+                fn (Builder $query) => $query->whereIn('model_type', $owners->modelTypes($owner)),
+            )
+            ->when($collection !== '', fn (Builder $query) => $query->where('collection_name', $collection))
             ->with(['model' => fn (MorphTo $morph) => $morph->morphWith($owners->eagerLoads())])
             ->latest('id')
             ->paginate(25)
@@ -45,6 +61,10 @@ class MediaController
                 ['key' => 'created_at', 'label' => __('media::media.col_created'), 'width' => '160px'],
             ],
             'filters' => $request->only(['q', 'owner', 'collection']),
+            'filterOptions' => [
+                'owners' => $owners->typeOptions(),
+                'collections' => Media::query()->distinct()->orderBy('collection_name')->pluck('collection_name'),
+            ],
             'urls' => ['index' => route('panel.media.index')],
         ]);
     }

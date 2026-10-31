@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
-import { PageHeader, PageZone, DataTable, Pagination, Icon } from '@lunarphp/panel';
+import { computed, ref, watch } from 'vue';
+import { Link, router } from '@inertiajs/vue3';
+import { PageHeader, PageZone, DataTable, Pagination, Icon, TextInput, FilterDropdown } from '@lunarphp/panel';
 
 interface MediaRow {
     id: number;
@@ -25,12 +26,47 @@ interface Paginated<T> {
     total: number;
 }
 
-defineProps<{
+const props = defineProps<{
     media: Paginated<MediaRow>;
     columns: { key: string; label: string; width?: string }[];
     filters: { q?: string; owner?: string; collection?: string };
+    filterOptions: { owners: Record<string, string>; collections: string[] };
     urls: { index: string };
 }>();
+
+const ownerOptions = computed(() => [
+    { value: 'all', label: 'All owners' },
+    ...Object.entries(props.filterOptions.owners).map(([value, label]) => ({ value, label })),
+]);
+
+const collectionOptions = computed(() => [
+    { value: 'all', label: 'All collections' },
+    ...props.filterOptions.collections.map((value) => ({ value, label: value })),
+]);
+
+const q = ref(props.filters.q ?? '');
+const ownerFilter = ref(props.filters.owner ?? 'all');
+const collectionFilter = ref(props.filters.collection ?? 'all');
+
+const reload = (): void => {
+    router.get(
+        props.urls.index,
+        {
+            q: q.value || undefined,
+            owner: ownerFilter.value === 'all' ? undefined : ownerFilter.value,
+            collection: collectionFilter.value === 'all' ? undefined : collectionFilter.value,
+        },
+        { preserveState: true, preserveScroll: true, replace: true },
+    );
+};
+
+watch([ownerFilter, collectionFilter], reload);
+
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(q, () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(reload, 300);
+});
 
 const formatDate = (value: string | null): string => (value ? value.slice(0, 16).replace('T', ' ') : '—');
 </script>
@@ -41,6 +77,12 @@ const formatDate = (value: string | null): string => (value ? value.slice(0, 16)
 
         <div class="px-4 sm:px-5 lg:px-7 max-w-[1400px] w-full mx-auto pt-5 pb-7">
             <PageZone region="main" position="before" />
+
+            <div class="flex items-center gap-2 mb-3">
+                <TextInput v-model="q" placeholder="Search file name…" clearable class="w-64" />
+                <FilterDropdown v-model="ownerFilter" :options="ownerOptions" label="Owner" default-value="all" />
+                <FilterDropdown v-model="collectionFilter" :options="collectionOptions" label="Collection" default-value="all" />
+            </div>
 
             <DataTable :columns="columns" :rows="media.data" empty-text="No media found">
                 <template #cell-file="{ row }">
