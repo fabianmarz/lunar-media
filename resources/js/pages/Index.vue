@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
-import { PageHeader, PageZone, DataTable, Pagination, Icon, TextInput, FilterDropdown } from '@lunarphp/panel';
+import { PageHeader, PageZone, DataTable, Pagination, Icon, TextInput, FilterDropdown, Button } from '@lunarphp/panel';
+import MediaDetail from '../components/MediaDetail.vue';
 
 interface MediaRow {
     id: number;
@@ -31,7 +32,7 @@ const props = defineProps<{
     columns: { key: string; label: string; width?: string }[];
     filters: { q?: string; owner?: string; collection?: string };
     filterOptions: { owners: Record<string, string>; collections: string[] };
-    urls: { index: string };
+    urls: { index: string; store: string; show: string; update: string };
 }>();
 
 const ownerOptions = computed(() => [
@@ -62,6 +63,35 @@ const reload = (): void => {
 
 watch([ownerFilter, collectionFilter], reload);
 
+const fileInput = ref<HTMLInputElement | null>(null);
+const uploadErrors = ref<string[]>([]);
+const selectedId = ref<number | null>(null);
+
+const upload = (event: Event): void => {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+
+    if (files.length === 0) {
+        return;
+    }
+
+    uploadErrors.value = [];
+    router.post(
+        props.urls.store,
+        { files },
+        {
+            forceFormData: true,
+            preserveScroll: true,
+            onError: (errors) => {
+                uploadErrors.value = Object.values(errors).map(String);
+            },
+            onFinish: () => {
+                input.value = '';
+            },
+        },
+    );
+};
+
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
 watch(q, () => {
     clearTimeout(searchTimer);
@@ -73,10 +103,19 @@ const formatDate = (value: string | null): string => (value ? value.slice(0, 16)
 
 <template>
     <div data-screen-label="Media" class="contents">
-        <PageHeader title="Media" description="Every uploaded file and the entity it belongs to." icon="image" />
+        <PageHeader title="Media" description="Every uploaded file and the entity it belongs to." icon="image">
+            <template #actions>
+                <input ref="fileInput" type="file" accept="image/*" multiple class="hidden" @change="upload" />
+                <Button variant="primary" icon="plus" @click="fileInput?.click()">Upload</Button>
+            </template>
+        </PageHeader>
 
         <div class="px-4 sm:px-5 lg:px-7 max-w-[1400px] w-full mx-auto pt-5 pb-7">
             <PageZone region="main" position="before" />
+
+            <ul v-if="uploadErrors.length" class="mb-3 text-[12.5px] text-danger">
+                <li v-for="message in uploadErrors" :key="message">{{ message }}</li>
+            </ul>
 
             <div class="flex items-center gap-2 mb-3">
                 <TextInput v-model="q" placeholder="Search file name…" clearable class="w-64" />
@@ -86,7 +125,11 @@ const formatDate = (value: string | null): string => (value ? value.slice(0, 16)
 
             <DataTable :columns="columns" :rows="media.data" empty-text="No media found">
                 <template #cell-file="{ row }">
-                    <div class="flex items-center gap-3 min-w-0">
+                    <button
+                        type="button"
+                        class="flex items-center gap-3 min-w-0 text-left"
+                        @click="selectedId = (row as MediaRow).id"
+                    >
                         <img
                             v-if="(row as MediaRow).thumbnail"
                             :src="(row as MediaRow).thumbnail!"
@@ -100,7 +143,7 @@ const formatDate = (value: string | null): string => (value ? value.slice(0, 16)
                             <div class="truncate text-[13px] text-ink-900">{{ (row as MediaRow).name }}</div>
                             <div class="truncate text-[12px] text-ink-500">{{ (row as MediaRow).file_name }}</div>
                         </div>
-                    </div>
+                    </button>
                 </template>
                 <template #cell-owner="{ row }">
                     <div class="min-w-0">
@@ -121,6 +164,13 @@ const formatDate = (value: string | null): string => (value ? value.slice(0, 16)
             </DataTable>
 
             <Pagination :meta="media" class="mt-4" />
+
+            <MediaDetail
+                :media-id="selectedId"
+                :urls="{ show: urls.show, update: urls.update }"
+                @close="selectedId = null"
+                @changed="router.reload({ only: ['media'] })"
+            />
 
             <PageZone region="main" position="after" />
         </div>

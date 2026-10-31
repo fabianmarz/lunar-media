@@ -54,7 +54,12 @@ class MediaSection extends Section
                 ->prefix('media')
                 ->name('panel.media.')
                 ->group(function (): void {
+                    Route::model('media', config('media-library.media_model'));
+
                     Route::get('/', [MediaController::class, 'index'])->name('index');
+                    Route::post('/', [MediaController::class, 'store'])->name('store');
+                    Route::get('{media}', [MediaController::class, 'show'])->name('show');
+                    Route::put('{media}', [MediaController::class, 'update'])->name('update');
                 });
         };
     }

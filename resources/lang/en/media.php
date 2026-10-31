@@ -5,6 +5,7 @@ return [
     'nav_media' => 'Media',
     'title' => 'Media',
     'empty' => 'No media found.',
+    'uploaded' => '{1} :count file uploaded.|[2,*] :count files uploaded.',
     'col_file' => 'File',
     'col_owner' => 'Belongs to',
     'col_collection' => 'Collection',
