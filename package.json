@@ -1,0 +1,9 @@
+{
+  "name": "@lunar-2-test/media",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  }
+}

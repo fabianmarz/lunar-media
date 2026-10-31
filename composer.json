@@ -1,0 +1,22 @@
+{
+    "name": "lunar-2-test/media",
+    "description": "Media library add-on for the Lunar 2 admin panel: browse all media with the entity each file belongs to.",
+    "license": "MIT",
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "LunarMedia\\": "src/"
+        }
+    },
+    "require": {
+        "php": "^8.3",
+        "lunarphp/panel": "2.x-dev"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "LunarMedia\\MediaServiceProvider"
+            ]
+        }
+    }
+}
