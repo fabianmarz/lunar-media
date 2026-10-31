@@ -32,7 +32,7 @@ const props = defineProps<{
     columns: { key: string; label: string; width?: string }[];
     filters: { q?: string; owner?: string; collection?: string };
     filterOptions: { owners: Record<string, string>; collections: string[] };
-    urls: { index: string; store: string; show: string; update: string };
+    urls: { index: string; store: string; show: string; update: string; destroy: string };
 }>();
 
 const ownerOptions = computed(() => [
@@ -167,7 +167,7 @@ const formatDate = (value: string | null): string => (value ? value.slice(0, 16)
 
             <MediaDetail
                 :media-id="selectedId"
-                :urls="{ show: urls.show, update: urls.update }"
+                :urls="{ show: urls.show, update: urls.update, destroy: urls.destroy }"
                 @close="selectedId = null"
                 @changed="router.reload({ only: ['media'] })"
             />

@@ -4,6 +4,7 @@ return [
     'nav_group' => 'Content',
     'nav_media' => 'Media',
     'title' => 'Media',
+    'in_use' => 'In use by CMS pages: :pages. Remove it from those blocks first.',
     'empty' => 'No media found.',
     'uploaded' => '{1} :count file uploaded.|[2,*] :count files uploaded.',
     'col_file' => 'File',

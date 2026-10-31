@@ -60,6 +60,7 @@ class MediaSection extends Section
                     Route::post('/', [MediaController::class, 'store'])->name('store');
                     Route::get('{media}', [MediaController::class, 'show'])->name('show');
                     Route::put('{media}', [MediaController::class, 'update'])->name('update');
+                    Route::delete('{media}', [MediaController::class, 'destroy'])->name('destroy');
                 });
         };
     }

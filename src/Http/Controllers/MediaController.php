@@ -12,10 +12,12 @@ use Illuminate\Support\Number;
 use Inertia\Inertia;
 use Inertia\Response;
 use Lunar\Core\Contracts\Actions\Media\AddsMedia;
+use Lunar\Core\Contracts\Actions\Media\DeletesMedia;
 use Lunar\Core\Contracts\Actions\Media\UpdatesMedia;
 use Lunar\Core\Models\Asset;
 use LunarMedia\Http\Requests\MediaUpdateRequest;
 use LunarMedia\Http\Requests\MediaUploadRequest;
+use LunarMedia\Support\MediaUsage;
 use LunarMedia\Support\OwnerResolver;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -79,6 +81,7 @@ class MediaController
                 'store' => route('panel.media.store'),
                 'show' => route('panel.media.show', '__ID__'),
                 'update' => route('panel.media.update', '__ID__'),
+                'destroy' => route('panel.media.destroy', '__ID__'),
             ],
         ]);
     }
@@ -99,9 +102,38 @@ class MediaController
         return back()->with('success', trans_choice('media::media.uploaded', count($files), ['count' => count($files)]));
     }
 
-    public function show(Media $media, OwnerResolver $owners): JsonResponse
+    public function show(Media $media, OwnerResolver $owners, MediaUsage $usage): JsonResponse
     {
-        return response()->json($this->detail($media, $owners));
+        return response()->json($this->detail($media, $owners) + ['usage' => $usage->pagesUsing($media->id)]);
+    }
+
+    /**
+     * Refuses while a CMS block still references the file; otherwise deletes it
+     * and, for a library upload, the Asset that only existed to own it.
+     */
+    public function destroy(Media $media, DeletesMedia $deletesMedia, MediaUsage $usage): JsonResponse
+    {
+        $pages = $usage->pagesUsing($media->id);
+
+        if ($pages->isNotEmpty()) {
+            return response()->json([
+                'message' => __('media::media.in_use', ['pages' => $pages->pluck('title')->implode(', ')]),
+                'errors' => ['media' => [__('media::media.in_use', ['pages' => $pages->pluck('title')->implode(', ')])]],
+                'usage' => $pages,
+            ], 422);
+        }
+
+        $owner = $media->model;
+
+        DB::transaction(function () use ($media, $owner, $deletesMedia): void {
+            $deletesMedia->execute($media);
+
+            if ($owner instanceof Asset && $owner->media()->doesntExist()) {
+                $owner->delete();
+            }
+        });
+
+        return response()->json(['deleted' => true]);
     }
 
     public function update(MediaUpdateRequest $request, Media $media, UpdatesMedia $updatesMedia, OwnerResolver $owners): JsonResponse

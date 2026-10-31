@@ -1,7 +1,17 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { Link } from '@inertiajs/vue3';
-import { Slideout, Button, TextInput, Textarea, FieldLabel, http, ValidationError, useToasts } from '@lunarphp/panel';
+import {
+    Slideout,
+    Button,
+    TextInput,
+    Textarea,
+    FieldLabel,
+    ConfirmDialog,
+    http,
+    ValidationError,
+    useToasts,
+} from '@lunarphp/panel';
 
 interface Detail {
     id: number;
@@ -16,11 +26,12 @@ interface Detail {
     alt: string | null;
     caption: string | null;
     owner: { type_label: string; label: string; url: string | null };
+    usage: { id: number; title: string; url: string }[];
 }
 
 const props = defineProps<{
     mediaId: number | null;
-    urls: { show: string; update: string };
+    urls: { show: string; update: string; destroy: string };
 }>();
 
 const emit = defineEmits<{ close: []; changed: [] }>();
@@ -32,6 +43,8 @@ const alt = ref('');
 const caption = ref('');
 const errors = ref<Record<string, string[]>>({});
 const saving = ref(false);
+const confirmingDelete = ref(false);
+const deleteError = ref('');
 
 const urlFor = (template: string, id: number): string => template.replace('__ID__', String(id));
 
@@ -47,6 +60,7 @@ watch(
     async (id) => {
         detail.value = null;
         errors.value = {};
+        deleteError.value = '';
 
         if (id !== null) {
             fill(await http.get<Detail>(urlFor(props.urls.show, id)));
@@ -64,6 +78,8 @@ const save = async (): Promise<void> => {
     errors.value = {};
 
     try {
+        const { usage } = detail.value;
+
         fill(
             await http.put<Detail>(urlFor(props.urls.update, detail.value.id), {
                 name: name.value,
@@ -71,6 +87,7 @@ const save = async (): Promise<void> => {
                 caption: caption.value || null,
             }),
         );
+        detail.value = { ...detail.value, usage };
         toasts.success('Media updated.');
         emit('changed');
     } catch (error) {
@@ -81,6 +98,35 @@ const save = async (): Promise<void> => {
         }
     } finally {
         saving.value = false;
+    }
+};
+
+const deleteMessage = (d: Detail): string =>
+    d.owner.url
+        ? `This file belongs to ${d.owner.type_label.toLowerCase()} "${d.owner.label}" and will be removed from it. This cannot be undone.`
+        : 'This file will be permanently deleted. This cannot be undone.';
+
+const remove = async (): Promise<void> => {
+    if (!detail.value) {
+        return;
+    }
+
+    deleteError.value = '';
+
+    try {
+        await http.delete(urlFor(props.urls.destroy, detail.value.id));
+        toasts.success('Media deleted.');
+        confirmingDelete.value = false;
+        emit('changed');
+        emit('close');
+    } catch (error) {
+        confirmingDelete.value = false;
+
+        if (error instanceof ValidationError) {
+            deleteError.value = error.errors.media?.[0] ?? 'This file cannot be deleted.';
+        } else {
+            throw error;
+        }
     }
 };
 </script>
@@ -126,7 +172,32 @@ const save = async (): Promise<void> => {
                 <p v-if="errors.caption" class="text-[12px] text-danger mt-1">{{ errors.caption[0] }}</p>
             </div>
 
-            <Button variant="primary" :disabled="saving" @click="save">Save</Button>
+            <div class="flex items-center gap-2">
+                <Button variant="primary" :disabled="saving" @click="save">Save</Button>
+                <Button icon="trash" @click="confirmingDelete = true">Delete</Button>
+            </div>
+            <p v-if="deleteError" class="text-[12.5px] text-danger">{{ deleteError }}</p>
+
+            <div class="border-t border-line pt-4">
+                <div class="text-xs font-medium text-ink-700 mb-1.5">Used in</div>
+                <ul v-if="detail.usage.length" class="space-y-1 text-[13px]">
+                    <li v-for="page in detail.usage" :key="page.id">
+                        <Link :href="page.url" class="text-ink-900 hover:underline">{{ page.title }}</Link>
+                        <span class="text-ink-500"> (CMS page)</span>
+                    </li>
+                </ul>
+                <p v-else class="text-[13px] text-ink-500">Not used in any CMS page.</p>
+            </div>
         </div>
+
+        <ConfirmDialog
+            v-if="detail"
+            v-model:open="confirmingDelete"
+            title="Delete this file?"
+            :description="deleteMessage(detail)"
+            confirm-label="Delete"
+            tone="danger"
+            @confirm="remove"
+        />
     </Slideout>
 </template>
