@@ -11,16 +11,38 @@ all Media Library, this package adds the panel UI and the attach/usage layer.
 |---|---|---|
 | ![Media library](docs/screenshots/media-library.png) | ![Asset detail drawer with usage tracking](docs/screenshots/media-detail.png) | ![Choose-from-library picker](docs/screenshots/media-picker.png) |
 
-## Setup
+## Installation
 
-The package is a `path` composer repository in the host app
-(`packages/media`, namespace `LunarMedia\`). `MediaServiceProvider` registers
-the panel `Section` (`MediaSection`) and routes under `/panel/media`.
+Requires PHP 8.3+, `lunarphp/panel` 2.x, and `spatie/laravel-medialibrary`
+(already a Lunar core dependency). Add the repository — the package isn't on
+Packagist yet:
+
+```json
+"repositories": [
+    { "type": "vcs", "url": "https://github.com/fabianmarz/lunar-media" }
+]
+```
+
+```bash
+composer require lunar-2-test/media
+php artisan migrate           # registers the media-manage permission
+php artisan lunar:panel:link  # symlinks the compiled bundle into public/vendor/lunar-panel/media
+```
+
+`MediaServiceProvider` is auto-discovered — the library appears under
+**Content → Media** in the panel nav. Install
+[lunar-cms](https://github.com/fabianmarz/lunar-cms) alongside it if you want
+the CMS `image` block's picker and CMS-page usage tracking (see Caveats).
+
+## Development
+
+Inside the monorepo-style app this package is developed in, it is wired via a
+`path` composer repository (`packages/media`, namespace `LunarMedia\`):
 
 ```bash
 cd packages/media
 npm install        # once — deps externalize against panel globals
-npm run build      # produces build/ (committed, served via /vendor/lunar-panel/media symlink)
+npm run build      # produces build/ (committed, linked via lunar:panel:link)
 npm run dev        # vite build --watch while editing JS
 ```
 
