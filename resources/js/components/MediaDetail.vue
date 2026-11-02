@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import {
     Slideout,
+    PageZone,
     Button,
     TextInput,
     Textarea,
@@ -188,6 +189,8 @@ const remove = async (): Promise<void> => {
                 </ul>
                 <p v-else class="text-[13px] text-ink-500">Not used in any CMS page.</p>
             </div>
+
+            <PageZone region="detail" position="after" :media="detail" />
         </div>
 
         <ConfirmDialog
