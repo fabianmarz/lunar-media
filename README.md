@@ -5,6 +5,12 @@ plus a reusable picker that other add-ons and Lunar core sections can consume.
 Built on `spatie/laravel-medialibrary` — uploads, conversions and storage are
 all Media Library, this package adds the panel UI and the attach/usage layer.
 
+## Screenshots
+
+| Library | Asset details & usage | Picker (opened from a CMS block) |
+|---|---|---|
+| ![Media library](docs/screenshots/media-library.png) | ![Asset detail drawer with usage tracking](docs/screenshots/media-detail.png) | ![Choose-from-library picker](docs/screenshots/media-picker.png) |
+
 ## Setup
 
 The package is a `path` composer repository in the host app
